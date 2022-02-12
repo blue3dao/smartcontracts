@@ -4,9 +4,11 @@ pragma solidity ^0.8.10;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
 //HRC721 contract to deploy and mint NFT
-contract HRC721 is ERC721("Blu3DAO", "Blu3") {
+contract HRC721 is ERC721("Blu3DAO", "Blu3"),ERC721Enumerable,ERC721URIStorage {
     mapping(uint256 => int256) private tokenIdMappings;
     address addressOwner;
     address private owner;
@@ -28,19 +30,39 @@ contract HRC721 is ERC721("Blu3DAO", "Blu3") {
     //emitting Airdrop event whenever the tokens are airdropped to an address
     event AirDrop(address indexed _to, uint256 _tokenId);
 
-    struct Metadata {
-        uint256 tokenID;
-        string tokenURI;
-        uint256 timestamp;
-    }
-
     modifier onlyOwner() {
         require(msg.sender == owner, "Caller is not the owner");
         _;
     }
 
-    //metadata to the tokenID mapping
-    mapping(uint256 => Metadata) public metadataMappings;
+     function _beforeTokenTransfer(address from, address to, uint256 tokenId)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._beforeTokenTransfer(from, to, tokenId);
+    }
+
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
 
     constructor(address _token, uint256 airdropExpiry) {
         for (uint256 i = 1; i <= 1250; i++) {
@@ -55,14 +77,10 @@ contract HRC721 is ERC721("Blu3DAO", "Blu3") {
     function safemint(
         address _user,
         uint256 tokenID,
-        string memory tokenURI
+        string memory _tokenURI
     ) public onlyOwner {
         _safeMint(_user, tokenID);
-        metadataMappings[tokenID] = Metadata({
-            timestamp: block.timestamp,
-            tokenID: tokenID,
-            tokenURI: tokenURI
-        });
+        _setTokenURI(tokenID,_tokenURI);
         emit Mint(msg.sender, _user, tokenID);
     }
 
@@ -84,11 +102,11 @@ contract HRC721 is ERC721("Blu3DAO", "Blu3") {
         tokenIdMappings[tokenID]++;
         if (tokenIdMappings[tokenID] == 0 && !isExpired()) {
             if (tokenID >= 1 && tokenID <= 1000)
-                bluTokenAddress.transfer(to, 10);
+                bluTokenAddress.transfer(to, 10 * 10 ** 18);
             else if (tokenID > 1000 && tokenID <= 1200)
-                bluTokenAddress.transfer(to, 50);
+                bluTokenAddress.transfer(to, 50 * 10 ** 18);
             else if (tokenID > 1200 && tokenID <= 1250)
-                bluTokenAddress.transfer(to, 100);
+                bluTokenAddress.transfer(to, 100 * 10 ** 18);
             emit AirDrop(to, tokenID);
         }
     }
