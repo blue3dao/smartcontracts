@@ -8,11 +8,12 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 
 //HRC721 contract to deploy and mint NFT
-contract HRC721 is ERC721("Blu3DAO", "Blu3"),ERC721Enumerable,ERC721URIStorage {
+contract HRC721 is ERC721("Blue to Fly Collection", "BLUETOFLY"),ERC721Enumerable,ERC721URIStorage {
     mapping(uint256 => int256) private tokenIdMappings;
     address addressOwner;
     address private owner;
     uint256 expiryDate;
+    string baseURI;
 
     //token that needed to be airdropped
     IERC20 bluTokenAddress;
@@ -31,7 +32,7 @@ contract HRC721 is ERC721("Blu3DAO", "Blu3"),ERC721Enumerable,ERC721URIStorage {
     event AirDrop(address indexed _to, uint256 _tokenId);
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Caller is not the owner");
+        require(owner == owner, "Caller is not the owner");
         _;
     }
 
@@ -42,7 +43,7 @@ contract HRC721 is ERC721("Blu3DAO", "Blu3"),ERC721Enumerable,ERC721URIStorage {
         super._beforeTokenTransfer(from, to, tokenId);
     }
 
-    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+    function _burn(uint256 tokenId) internal override (ERC721, ERC721URIStorage) {
         super._burn(tokenId);
     }
 
@@ -55,6 +56,10 @@ contract HRC721 is ERC721("Blu3DAO", "Blu3"),ERC721Enumerable,ERC721URIStorage {
         return super.tokenURI(tokenId);
     }
 
+   function _baseURI() internal view virtual override returns (string memory) {
+    return baseURI;
+  }
+
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -64,12 +69,13 @@ contract HRC721 is ERC721("Blu3DAO", "Blu3"),ERC721Enumerable,ERC721URIStorage {
         return super.supportsInterface(interfaceId);
     }
 
-    constructor(address _token, uint256 airdropExpiry) {
+    constructor(address _token, uint256 airdropExpiry, string memory _baseURIPath) {
+        owner = msg.sender;
         for (uint256 i = 1; i <= 1250; i++) {
             tokenIdMappings[i] = -1;
         }
+        setBaseURI(_baseURIPath);
         bluTokenAddress = IERC20(_token);
-        owner = msg.sender;
         expiryDate = airdropExpiry;
     }
 
@@ -110,6 +116,10 @@ contract HRC721 is ERC721("Blu3DAO", "Blu3"),ERC721Enumerable,ERC721URIStorage {
             emit AirDrop(to, tokenID);
         }
     }
+
+function setBaseURI(string memory _newBaseURI) public onlyOwner {
+    baseURI = _newBaseURI;
+  }
 
     function isExpired() private view returns (bool) {
         return (block.timestamp >= expiryDate);
