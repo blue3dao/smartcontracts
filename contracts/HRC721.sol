@@ -6,17 +6,20 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
 //HRC721 contract to deploy and mint NFT
 contract HRC721 is ERC721("Blue to Fly Collection", "BLUETOFLY"),ERC721Enumerable,ERC721URIStorage {
-    mapping(uint256 => int256) private tokenIdMappings;
-    address addressOwner;
+    using Counters for Counters.Counter;
     address private owner;
     uint256 expiryDate;
     string baseURI;
-
+    mapping(uint256 => bool) tokenAirdropStatus;
+    Counters.Counter private tokenIdCounter;
     //token that needed to be airdropped
     IERC20 bluTokenAddress;
+
+
 
     //event to be emmitted when the minting is succeeded
     event Mint(address indexed _from, address indexed _to, uint256 _tokenId);
@@ -32,7 +35,7 @@ contract HRC721 is ERC721("Blue to Fly Collection", "BLUETOFLY"),ERC721Enumerabl
     event AirDrop(address indexed _to, uint256 _tokenId);
 
     modifier onlyOwner() {
-        require(owner == owner, "Caller is not the owner");
+        require(owner == msg.sender, "Caller is not the owner");
         _;
     }
 
@@ -71,27 +74,33 @@ contract HRC721 is ERC721("Blue to Fly Collection", "BLUETOFLY"),ERC721Enumerabl
 
     constructor(address _token, uint256 airdropExpiry, string memory _baseURIPath) {
         owner = msg.sender;
-        for (uint256 i = 1; i <= 1250; i++) {
-            tokenIdMappings[i] = -1;
-        }
         setBaseURI(_baseURIPath);
         bluTokenAddress = IERC20(_token);
         expiryDate = airdropExpiry;
+        tokenIdCounter.increment();
     }
 
     //minting the NFT tokens by the owner of the contract
     function safemint(
         address _user,
-        uint256 tokenID,
-        string memory _tokenURI
+        string[] memory _tokenURI
     ) public onlyOwner {
-        _safeMint(_user, tokenID);
-        _setTokenURI(tokenID,_tokenURI);
-        emit Mint(msg.sender, _user, tokenID);
+        for(uint i = 0; i < _tokenURI.length; i ++){
+        _safeMint(_user, tokenIdCounter.current());
+        _setTokenURI(tokenIdCounter.current(),_tokenURI[i]);
+        tokenIdCounter.increment();
+        emit Mint(msg.sender, _user, tokenIdCounter.current());
+        }
+
     }
 
-    function getToken(uint256 tokenID) public view returns (int256) {
-        return tokenIdMappings[tokenID];
+    function getTokenAirdropStatus(uint256 tokenID) public view returns (bool) {
+        return tokenAirdropStatus[tokenID];
+    }
+
+    function updateAirdropStatus(uint256 tokenID, bool value) public onlyOwner
+    {
+        tokenAirdropStatus[tokenID] = value;
     }
 
     /*
@@ -103,21 +112,36 @@ contract HRC721 is ERC721("Blue to Fly Collection", "BLUETOFLY"),ERC721Enumerabl
         address to,
         uint256 tokenID
     ) public {
-        safeTransferFrom(from, to, tokenID);
+        safeTransferFrom(from, to, tokenID, "");
         emit TransferBLU(from, to, tokenID);
-        tokenIdMappings[tokenID]++;
-        if (tokenIdMappings[tokenID] == 0 && !isExpired()) {
-            if (tokenID >= 1 && tokenID <= 1000)
-                bluTokenAddress.transfer(to, 10 * 10 ** 18);
-            else if (tokenID > 1000 && tokenID <= 1200)
-                bluTokenAddress.transfer(to, 50 * 10 ** 18);
-            else if (tokenID > 1200 && tokenID <= 1250)
-                bluTokenAddress.transfer(to, 100 * 10 ** 18);
-            emit AirDrop(to, tokenID);
-        }
+        airDropping(tokenID,to);
     }
 
-function setBaseURI(string memory _newBaseURI) public onlyOwner {
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenID
+    ) public override {
+        safeTransferFrom(from, to, tokenID, "");
+        emit TransferBLU(from, to, tokenID);
+        airDropping(tokenID,to);
+    }
+
+   function airDropping(uint256  tokenID, address _to) private  {
+       if(tokenAirdropStatus[tokenID]==false && !isExpired())   {
+        if (tokenID >= 1 && tokenID <= 1000)
+                bluTokenAddress.transfer(_to, 10 * 10 ** 18);
+        else if (tokenID > 1000 && tokenID <= 1200)
+                bluTokenAddress.transfer(_to, 50 * 10 ** 18);
+        else if (tokenID > 1200 && tokenID <= 1250)
+                bluTokenAddress.transfer(_to, 100 * 10 ** 18);
+       }
+        
+        tokenAirdropStatus[tokenID] = true;
+        emit AirDrop(_to, tokenID);
+   }
+
+   function setBaseURI(string memory _newBaseURI) public onlyOwner {
     baseURI = _newBaseURI;
   }
 
